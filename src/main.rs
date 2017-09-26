@@ -1,6 +1,8 @@
 extern crate cgmath;
 extern crate image;
+extern crate rand;
 
+mod camera;
 mod hit;
 mod hittable_list;
 mod ray;
@@ -8,8 +10,8 @@ mod sphere;
 
 use cgmath::prelude::*;
 use cgmath::Vector3;
-
 use image::Pixel;
+use rand::Rng;
 
 use hit::Hittable;
 use ray::Ray;
@@ -31,21 +33,16 @@ fn color<H: Hittable>(ray: Ray, world: &H) -> Vector3<f32> {
 }
 
 fn main() {
+    let mut rng = rand::thread_rng();
+
     let nx = 800;
     let ny = 400;
+    // Number of rays per pixel
+    let num_samples = 100;
 
     let mut image_buffer = image::ImageBuffer::new(nx, ny);
 
-    let width = nx as f32 / ny as f32;
-    let height = (ny as f32 / nx as f32) * width;
-
-    // Bounds are 4 wide and 2 vertically
-    let lower_left_corner = Vector3::new(-width, -height, -1.0);
-    // Horizontal bounds
-    let horizontal_scale = Vector3::new(width * 2.0, 0.0, 0.0);
-    // Vertical bounds
-    let vertical_scale = Vector3::new(0.0, height * 2.0, 0.0);
-    let origin = Vector3::new(0.0, 0.0, 0.0);
+    let camera = camera::Camera::new();
 
     let small_sphere = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5);
     let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0);
@@ -56,15 +53,21 @@ fn main() {
 
     for j in 0..ny {
         for i in 0..nx {
-            let horizontal_offset = i as f32 / nx as f32;
-            let vertical_offset = j as f32 / ny as f32;
+            let mut total_color = Vector3::zero();
 
             // Create ray based on offsets from origin to point on plane z = -1
-            let ray = Ray::new(origin, lower_left_corner +
-                               horizontal_offset * horizontal_scale +
-                               vertical_offset * vertical_scale);
+            for _ in 0..num_samples {
+                // Randomly offset each ray by a tiny amount to get nice AA
+                let horizontal_offset = (i as f32 + rng.next_f32()) / nx as f32;
+                let vertical_offset = (j as f32 + rng.next_f32()) / ny as f32;
 
-            let mut rgb = color(ray, &world);
+                let ray = camera.get_ray_at_coords(horizontal_offset, vertical_offset);
+
+                total_color += color(ray, &world);
+            }
+
+            // Final color is the average of all samples on a pixel
+            let mut rgb = total_color.div_element_wise(num_samples as f32);
 
             // Convert from colors in range 0.0..1.0 to 0..255
             rgb *= 255.99;
