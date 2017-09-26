@@ -12,12 +12,14 @@ use cgmath::prelude::*;
 use cgmath::Vector3;
 use image::Pixel;
 use rand::Rng;
+use std::f32;
+use std::time::Instant;
 
 use hit::Hittable;
 use ray::Ray;
 
 fn color<H: Hittable>(ray: Ray, world: &H) -> Vector3<f32> {
-    if let Some(record) = world.hit(ray, 0.0, 1000.0) {
+    if let Some(record) = world.hit(ray, 0.0, f32::MAX) {
         // Normalize normals to be between 0 and 1 for color
         0.5 * record.normal.add_element_wise(1.0)
     } else {
@@ -51,13 +53,15 @@ fn main() {
     world.insert(Box::new(small_sphere));
     world.insert(Box::new(big_sphere));
 
+    let start_time = Instant::now();
+
     for j in 0..ny {
         for i in 0..nx {
             let mut total_color = Vector3::zero();
 
             // Create ray based on offsets from origin to point on plane z = -1
             for _ in 0..num_samples {
-                // Randomly offset each ray by a tiny amount to get nice AA
+                // Randomly offset each ray by a tiny, random amount to get nice AA
                 let horizontal_offset = (i as f32 + rng.next_f32()) / nx as f32;
                 let vertical_offset = (j as f32 + rng.next_f32()) / ny as f32;
 
@@ -79,5 +83,17 @@ fn main() {
         }
     }
 
+    let elapsed_time = start_time.elapsed();
+    println!("Raytracing with {} samples took {}", num_samples, format_seconds(elapsed_time.as_secs()));
+
     let _ = image_buffer.save("output.png");
+}
+
+fn format_seconds(secs: u64) -> String {
+    let hours = secs / 3600;
+    let secs = secs % 3600;
+    let minutes = secs / 60;
+    let secs = secs % 60;
+
+    format!("{:02}:{:02}:{:02}", hours, minutes, secs)
 }
