@@ -11,11 +11,20 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new() -> Camera {
+    pub fn new(res_x: u32, res_y: u32) -> Camera {
+        let res_x = res_x as f32;
+        let res_y = res_y as f32;
+
+        // Only width is modified to change clipping area. If the
+        // height is changed, than the final result is scaled up to match
+        // Dunno if this is correct, but it seems pretty similar
+        // to what other programs do.
+        let width = res_x / res_y;
+
         Camera {
             position: Vector3::zero(),
-            lower_left_corner: Vector3::new(-2.0, -1.0, -1.0),
-            horizontal_scale: Vector3::new(4.0, 0.0, 0.0),
+            lower_left_corner: Vector3::new(-width, -1.0, -1.0),
+            horizontal_scale: Vector3::new(width * 2.0, 0.0, 0.0),
             vertical_scale: Vector3::new(0.0, 2.0, 0.0),
         }
     }

@@ -37,14 +37,15 @@ fn color<H: Hittable>(ray: Ray, world: &H) -> Vector3<f32> {
 fn main() {
     let mut rng = rand::thread_rng();
 
-    let nx = 800;
-    let ny = 400;
+    // Final pixel resolution
+    let nx = 200;
+    let ny = 100;
     // Number of rays per pixel
-    let num_samples = 100;
+    let num_samples = 10;
 
     let mut image_buffer = image::ImageBuffer::new(nx, ny);
 
-    let camera = camera::Camera::new();
+    let camera = camera::Camera::new(nx, ny);
 
     let small_sphere = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5);
     let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0);
