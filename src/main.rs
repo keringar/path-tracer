@@ -1,52 +1,32 @@
 extern crate cgmath;
 extern crate image;
 
+mod hit;
+mod hittable_list;
 mod ray;
+mod sphere;
 
 use cgmath::prelude::*;
 use cgmath::Vector3;
 
 use image::Pixel;
 
+use hit::Hittable;
 use ray::Ray;
 
-// Linearly blend white and blue depending on the y coordinate
-fn color(ray: Ray) -> Vector3<f32> {
-    // Check if ray hit sphere. If it does, it returns the point along the ray
-    // that hit the sphere
-    let t = hit_sphere(Vector3::new(0.0, 0.0, -1.0), 0.5, ray);
-    // It hit the sphere at some value t so calculate surface normals at that point
-    if t > 0.0 {
-        // The normal simply points directly from the center to the point on the surface
-        // of the sphere. Which can be found by subtracting the center from the point
-        // on the surface given by ray.point_at_distance(t)
-        let mut normal = ray.point_at_distance(t) - Vector3::new(0.0, 0.0, -1.0);
-        normal.normalize();
-        return 0.5 * Vector3::new(normal.x + 1.0, normal.y + 1.0, normal.z + 1.0);
-    }
-
-    // Normalize ray height to -1.0 to 1.0
-    let unit_dir = ray.direction().normalize();
-    
-    // Scale ray to range 0.0 to 1.0 to get lerp factor
-    let t = 0.5 * (unit_dir.y + 1.0);
-
-    // Lerp height to get color
-    // Blended Value = (1 - t) * start_value + t * end_value
-    (1.0 - t) * Vector3::new(1.0, 1.0, 1.0) + t * Vector3::new(0.5, 0.7, 1.0)
-}
-
-fn hit_sphere(center: Vector3<f32>, radius: f32, ray: Ray) -> f32 {
-    let oc = ray.origin() - center;
-    let a = ray.direction().dot(ray.direction());
-    let b = 2.0 * oc.dot(ray.direction());
-    let c = oc.dot(oc) - (radius * radius);
-    let discriminant = (b * b) - (4.0 * a * c);
-
-    if discriminant < 0.0 {
-        -1.0
+fn color<H: Hittable>(ray: Ray, world: &H) -> Vector3<f32> {
+    if let Some(record) = world.hit(ray, 0.0, 1000.0) {
+        // Normalize normals to be between 0 and 1 for color
+        0.5 * record.normal.add_element_wise(1.0)
     } else {
-        (-b - discriminant.sqrt()) / (2.0 * a)
+        // Linearly blend white and blue depending on the y coordinate to get background
+        // Normalize ray height to -1.0 to 1.0
+        let unit_dir = ray.direction().normalize();
+        // Scale ray to range 0.0 to 1.0 to get lerp factor
+        let t = 0.5 * (unit_dir.y + 1.0);
+        // Lerp height to get color
+        // Blended Value = (1 - t) * start_value + t * end_value
+       (1.0 - t) * Vector3::new(1.0, 1.0, 1.0) + t * Vector3::new(0.5, 0.7, 1.0)
     }
 }
 
@@ -61,13 +41,18 @@ fn main() {
 
     // Bounds are 4 wide and 2 vertically
     let lower_left_corner = Vector3::new(-width, -height, -1.0);
-
     // Horizontal bounds
     let horizontal_scale = Vector3::new(width * 2.0, 0.0, 0.0);
     // Vertical bounds
     let vertical_scale = Vector3::new(0.0, height * 2.0, 0.0);
-
     let origin = Vector3::new(0.0, 0.0, 0.0);
+
+    let small_sphere = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5);
+    let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0);
+
+    let mut world = hittable_list::HittableList::new();
+    world.insert(Box::new(small_sphere));
+    world.insert(Box::new(big_sphere));
 
     for j in 0..ny {
         for i in 0..nx {
@@ -79,11 +64,14 @@ fn main() {
                                horizontal_offset * horizontal_scale +
                                vertical_offset * vertical_scale);
 
-            let mut rgb = color(ray);
+            let mut rgb = color(ray, &world);
 
+            // Convert from colors in range 0.0..1.0 to 0..255
             rgb *= 255.99;
+            // Cast to bytes for storage
             let rgb = rgb.cast::<u8>();
             let pixel = image::Rgba::from_channels(rgb.x, rgb.y, rgb.z, 255);
+            // Reverse image beacuse I am indexing from top-down
             image_buffer.put_pixel(i, ny - j - 1, pixel);
         }
     }
