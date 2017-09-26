@@ -11,7 +11,7 @@ mod sphere;
 use cgmath::prelude::*;
 use cgmath::Vector3;
 use image::Pixel;
-use rand::Rng;
+use rand::{Rand, Rng};
 use std::f32;
 use std::time::Instant;
 
@@ -19,9 +19,18 @@ use hit::Hittable;
 use ray::Ray;
 
 fn color<H: Hittable>(ray: Ray, world: &H) -> Vector3<f32> {
-    if let Some(record) = world.hit(ray, 0.0, f32::MAX) {
-        // Normalize normals to be between 0 and 1 for color
-        0.5 * record.normal.add_element_wise(1.0)
+    // Limit the closest distance because otherwise, rays would just keep bouncing due to
+    // low precision floats
+    if let Some(record) = world.hit(ray, 0.001, f32::MAX) {
+        // Add a random value in a unit sphere to the surface normal to get the ray
+        // bounce direction
+        let bounce_dir = record.position + record.normal + random_position_in_unit_sphere();
+        let bounced_ray = Ray::new(record.position, bounce_dir);
+
+        // Recursively call ourself with the new bounce dir to compute the final color of the ray
+        // We multiply by 0.5 because we are approximating a diffuse material with a 50% chance to
+        // reflect and a 50% chance to absorb
+        0.5 * color(bounced_ray, world)
     } else {
         // Linearly blend white and blue depending on the y coordinate to get background
         // Normalize ray height to -1.0 to 1.0
@@ -38,10 +47,10 @@ fn main() {
     let mut rng = rand::thread_rng();
 
     // Final pixel resolution
-    let nx = 200;
-    let ny = 100;
+    let nx = 800;
+    let ny = 400;
     // Number of rays per pixel
-    let num_samples = 10;
+    let num_samples = 1000;
 
     let mut image_buffer = image::ImageBuffer::new(nx, ny);
 
@@ -88,6 +97,18 @@ fn main() {
     println!("Raytracing with {} samples took {}", num_samples, format_seconds(elapsed_time.as_secs()));
 
     let _ = image_buffer.save("output.png");
+}
+
+fn random_position_in_unit_sphere() -> Vector3<f32> {
+    let mut rng = rand::thread_rng();
+
+    let mut random_position = Vector3::<f32>::rand(&mut rng);
+
+    while random_position.distance2(Vector3::zero()) >= 1.0 {
+        random_position = Vector3::<f32>::rand(&mut rng);
+    }
+
+    random_position
 }
 
 fn format_seconds(secs: u64) -> String {
