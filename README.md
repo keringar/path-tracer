@@ -1,5 +1,5 @@
 # Current Output
-![Current Master](./Output.png "Current Master")
+![Current Master](./output.png "Current Master")
 
 A view of the history of the ray tracer's output can be found at [here](./HISTORY.md)
 
