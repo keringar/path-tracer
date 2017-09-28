@@ -2,18 +2,21 @@ use cgmath::prelude::*;
 use cgmath::Vector3;
 
 use hit::{Hittable, HitRecord};
+use material::Material;
 use ray::Ray;
 
 pub struct Sphere {
     center: Vector3<f32>,
     radius: f32,
+    material: Material,
 }
 
 impl Sphere {
-    pub fn new(center: Vector3<f32>, radius: f32) -> Self {
+    pub fn new(center: Vector3<f32>, radius: f32, material: Material) -> Self {
         Sphere {
             center,
             radius,
+            material,
         }
     }
 }
@@ -38,6 +41,7 @@ impl Hittable for Sphere {
                     t: tmp_t,
                     position,
                     normal: (position - self.center).normalize(),
+                    material: self.material,
                 };
 
                 return Some(record);
@@ -52,6 +56,7 @@ impl Hittable for Sphere {
                     t: tmp_t,
                     position,
                     normal: (position - self.center).normalize(),
+                    material: self.material,
                 };
 
                 return Some(record);

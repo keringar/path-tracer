@@ -5,6 +5,7 @@ extern crate rand;
 mod camera;
 mod hit;
 mod hittable_list;
+mod material;
 mod ray;
 mod sphere;
 
@@ -16,21 +17,23 @@ use std::f32;
 use std::time::Instant;
 
 use hit::Hittable;
+use material::Material;
 use ray::Ray;
 
-fn color<H: Hittable>(ray: Ray, world: &H) -> Vector3<f32> {
+// Ray takes on the end color after up to 50 scatters/reflections
+fn color<H: Hittable>(ray: Ray, world: &H, depth: u32) -> Vector3<f32> {
     // Limit the closest distance because otherwise, rays would just keep bouncing due to
-    // low precision floats
+    // low precision floats or would recurse too deeply and overflow the stack
     if let Some(record) = world.hit(ray, 0.001, f32::MAX) {
-        // Add a random value in a unit sphere to the surface normal to get the ray
-        // bounce direction
-        let bounce_dir = record.position + record.normal + random_position_in_unit_sphere();
-        let bounced_ray = Ray::new(record.position, bounce_dir);
+        if depth < 50 {
+            if let Some(scattered_ray) = record.material.scatter(ray, record) {
+                // Attenuate ray based on the surface color
+                return scattered_ray.attenuation.mul_element_wise(color(scattered_ray.ray, world, depth + 1));
+            }
+        }
 
-        // Recursively call ourself with the new bounce dir to compute the final color of the ray
-        // We multiply by 0.5 because we are approximating a diffuse material with a 50% chance to
-        // reflect and a 50% chance to absorb
-        0.5 * color(bounced_ray, world)
+        // Ray has scattered so many times that it has been completely absorbed
+        return Vector3::new(0.0, 0.0, 0.0);
     } else {
         // Linearly blend white and blue depending on the y coordinate to get background
         // Normalize ray height to -1.0 to 1.0
@@ -47,20 +50,27 @@ fn main() {
     let mut rng = rand::thread_rng();
 
     // Final pixel resolution
-    let nx = 800;
-    let ny = 400;
+    let nx = 400;
+    let ny = 200;
     // Number of rays per pixel
-    let num_samples = 1000;
+    let num_samples = 100;
 
+    // For PNG writing
     let mut image_buffer = image::ImageBuffer::new(nx, ny);
 
     let camera = camera::Camera::new(nx, ny);
 
-    let small_sphere = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5);
-    let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0);
+    let lambertian_red = Material::new_lambertian(0.8, 0.3, 0.3);
+    let lambertian_yellow = Material::new_lambertian(0.8, 0.8, 0.0);
+    let metallic = Material::new_metallic(0.8, 0.8, 0.8);
+
+    let small_sphere_right = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, lambertian_red);
+    let small_sphere_left = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, metallic);
+    let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0, lambertian_yellow);
 
     let mut world = hittable_list::HittableList::new();
-    world.insert(Box::new(small_sphere));
+    world.insert(Box::new(small_sphere_left));
+    world.insert(Box::new(small_sphere_right));
     world.insert(Box::new(big_sphere));
 
     let start_time = Instant::now();
@@ -77,7 +87,7 @@ fn main() {
 
                 let ray = camera.get_ray_at_coords(horizontal_offset, vertical_offset);
 
-                total_color += color(ray, &world);
+                total_color += color(ray, &world, 0);
             }
 
             // Final color is the average of all samples on a pixel

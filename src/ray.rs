@@ -3,7 +3,9 @@ use cgmath::Vector3;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
+    // Position
     origin: Vector3<f32>,
+    // Non-normalized vector
     direction: Vector3<f32>,
 }
 

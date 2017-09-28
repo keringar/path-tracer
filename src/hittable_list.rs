@@ -3,6 +3,7 @@ use cgmath::prelude::*;
 use hit::{Hittable, HitRecord};
 use ray::Ray;
 
+// A collection of Hittable objects
 pub struct HittableList {
     hittable: Vec<Box<Hittable>>,
 }
