@@ -3,10 +3,12 @@ use cgmath::Vector3;
 use material::Material;
 use ray::Ray;
 
+/// Interface of all objects that a ray can interact with
 pub trait Hittable {
     fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
 }
 
+/// Struct containg all the data necessary to model a ray-object collision
 #[derive(Debug, Clone, Copy)]
 pub struct HitRecord {
     // Distance along ray that it hit

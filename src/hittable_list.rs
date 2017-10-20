@@ -26,8 +26,10 @@ impl Hittable for HittableList {
     fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let mut current_closest_hit = None;
 
+        // Iterate through the list of objects and check if they were it
         for hittable in &self.hittable {
             if let Some(record) = hittable.hit(ray, t_min, t_max) {
+                // Calculate which one was closest to us
                 match current_closest_hit {
                     None => current_closest_hit = Some(record),
                     Some(closest) => {
