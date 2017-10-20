@@ -62,7 +62,7 @@ fn main() {
 
     let lambertian_red = Material::new_lambertian(0.8, 0.3, 0.3);
     let lambertian_yellow = Material::new_lambertian(0.8, 0.8, 0.0);
-    let metallic = Material::new_metallic(0.8, 0.8, 0.8);
+    let metallic = Material::new_metallic(0.8, 0.8, 0.8, 0.3);
 
     let small_sphere_right = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, lambertian_red);
     let small_sphere_left = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, metallic);
@@ -107,18 +107,6 @@ fn main() {
     println!("Raytracing with {} samples took {}", num_samples, format_seconds(elapsed_time.as_secs()));
 
     let _ = image_buffer.save("output.png");
-}
-
-fn random_position_in_unit_sphere() -> Vector3<f32> {
-    let mut rng = rand::thread_rng();
-
-    let mut random_position = Vector3::<f32>::rand(&mut rng);
-
-    while random_position.distance2(Vector3::zero()) >= 1.0 {
-        random_position = Vector3::<f32>::rand(&mut rng);
-    }
-
-    random_position
 }
 
 fn format_seconds(secs: u64) -> String {

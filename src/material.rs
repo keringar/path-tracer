@@ -17,6 +17,7 @@ pub enum Material {
     },
     Metallic {
         albedo: Vector3<f32>,
+        fuzziness: f32,
     }
 }
 
@@ -27,9 +28,10 @@ impl Material {
         }
     }
 
-    pub fn new_metallic(r: f32, g: f32, b: f32) -> Material {
+    pub fn new_metallic(r: f32, g: f32, b: f32, fuzziness: f32) -> Material {
         Material::Metallic {
             albedo: Vector3::new(r, g, b),
+            fuzziness,
         }
     }
 }
@@ -48,11 +50,14 @@ impl Material {
                     attenuation: albedo,
                 })
             },
-            &Material::Metallic{ albedo } => {
-                // Metallic materials just do a simple reflection
-                // Just subtract the normal facing vector from the incoming ray
+            /// Metallic materials just do a simple reflection, with an optional random fuzziness parameter
+            &Material::Metallic{ albedo, fuzziness } => {
+                // Calculate reflected ray vector with some cross products
                 let reflected = ray.direction() - 2.0 * (ray.direction().dot(record.normal)) * record.normal;
-                let bounced_ray = Ray::new(record.position, reflected);
+                // Add an fuziness parameter to the ray bounce direction
+                let fuzzy_ray = reflected + (random_position_in_unit_sphere() * fuzziness);
+                // Create a new ray starting from the hit location and pointing toward the reflected ray dir
+                let bounced_ray = Ray::new(record.position, fuzzy_ray);
 
                 Some(ScatteredRay {
                     ray: bounced_ray,
