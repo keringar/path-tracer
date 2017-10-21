@@ -26,3 +26,7 @@ Add lighting
 Add different material types
 
 ![6](https://raw.githubusercontent.com/keringar/ray-tracer/a6dfcf110eebb84fe49a5b78d0ca87d81d978669/output.png)
+
+Add dielectric materials
+
+![7](https://raw.githubusercontent.com/keringar/ray-tracer/8aff6c6ea29d357a961c47c42a100a6d4b755879/output.png)
