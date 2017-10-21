@@ -1,6 +1,6 @@
 [package]
 authors = ["Keringar <git@keringar.xyz>"]
-name = "ray-tracer"
+name = "path-tracer"
 version = "0.1.0"
 
 [dependencies]
