@@ -21,28 +21,31 @@ use material::Material;
 use ray::Ray;
 
 // Final rendered image resolution
-const PIXEL_RES_X: u32 = 400;
-const PIXEL_RES_Y: u32 = 200;
+const PIXEL_RES_X: u32 = 1920;
+const PIXEL_RES_Y: u32 = 1080;
 
 // Number of rays per pixel
-const NUM_SAMPLES: u32 = 100;
+const NUM_SAMPLES: u32 = 1000;
 
 fn main() {
     // Camera contains the ray emitter and calculates colors for a PIXEL_RES_X
     // and PIXEL_RES_Y sized image
     let camera = camera::Camera::new(PIXEL_RES_X, PIXEL_RES_Y);
 
-    let lambertian_red = Material::new_lambertian(0.8, 0.3, 0.3);
+    let lambertian_blue   = Material::new_lambertian(0.1, 0.2, 0.5);
     let lambertian_yellow = Material::new_lambertian(0.8, 0.8, 0.0);
-    let metallic = Material::new_metallic(0.8, 0.8, 0.8, 0.3);
+    let metallic = Material::new_metallic(0.8, 0.6, 0.2, 1.0);
+    let dielectric = Material::new_dielectric(1.5);
 
-    let small_sphere_right = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, lambertian_red);
-    let small_sphere_left = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, metallic);
+    let sphere_zero = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5, lambertian_blue);
+    let sphere_one  = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, metallic);
+    let sphere_two  = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, dielectric);
     let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0, lambertian_yellow);
 
     let mut world = hittable_list::HittableList::new();
-    world.insert(Box::new(small_sphere_left));
-    world.insert(Box::new(small_sphere_right));
+    world.insert(Box::new(sphere_zero));
+    world.insert(Box::new(sphere_one));
+    world.insert(Box::new(sphere_two));
     world.insert(Box::new(big_sphere));
 
     // Create PNG for final output
