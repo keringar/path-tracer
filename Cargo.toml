@@ -4,6 +4,7 @@ name = "path-tracer"
 version = "0.1.0"
 
 [dependencies]
-cgmath = "0.15"
-image = "0.17"
-rand = "0.3"
+cgmath = "0.15.0"
+image = "0.18.0"
+rand = "0.3.18"
+rayon = "0.9.0"

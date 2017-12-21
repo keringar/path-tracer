@@ -1,6 +1,7 @@
 extern crate cgmath;
 extern crate image;
 extern crate rand;
+extern crate rayon;
 
 mod camera;
 mod hit;
@@ -13,6 +14,7 @@ use cgmath::prelude::*;
 use cgmath::Vector3;
 use image::Pixel;
 use rand::Rng;
+use rayon::prelude::*;
 use std::f32;
 use std::time::Instant;
 
@@ -32,14 +34,14 @@ fn main() {
     // and PIXEL_RES_Y sized image
     let camera = camera::Camera::new(PIXEL_RES_X, PIXEL_RES_Y);
 
-    let lambertian_blue   = Material::new_lambertian(0.1, 0.2, 0.5);
+    let lambertian_blue = Material::new_lambertian(0.1, 0.2, 0.5);
     let lambertian_yellow = Material::new_lambertian(0.8, 0.8, 0.0);
     let metallic = Material::new_metallic(0.8, 0.6, 0.2, 1.0);
     let dielectric = Material::new_dielectric(1.5);
 
     let sphere_zero = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5, lambertian_blue);
-    let sphere_one  = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, metallic);
-    let sphere_two  = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, dielectric);
+    let sphere_one = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, metallic);
+    let sphere_two = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, dielectric);
     let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0, lambertian_yellow);
 
     let mut world = hittable_list::HittableList::new();
@@ -50,33 +52,36 @@ fn main() {
 
     // Create PNG for final output
     let mut image_buffer = image::ImageBuffer::new(PIXEL_RES_X, PIXEL_RES_Y);
-    
-    // Create pRNG for MSAA
-    let mut rng = rand::thread_rng();
 
     // Start timing to see how long the ray trace takes
     let start_time = Instant::now();
-    println!("Now ray tracing a {} by {} image with {} samples", PIXEL_RES_X, PIXEL_RES_Y, NUM_SAMPLES);
+    println!(
+        "Now ray tracing a {} by {} image with {} samples",
+        PIXEL_RES_X, PIXEL_RES_Y, NUM_SAMPLES
+    );
 
     for y in 0..PIXEL_RES_Y {
         for x in 0..PIXEL_RES_X {
-            // Create accumulator to calculate the average color of the pixel at (i, j)
-            let mut total_color = Vector3::zero();
-
             // Create ray based on offsets from origin to point on plane z = -1
             // The actual ray is exactly the opposite of how it works in real life
-            for _ in 0..NUM_SAMPLES {
-                // Randomly offset each ray by a tiny, random amount to get nice AA
-                let horizontal_offset = (x as f32 + rng.next_f32()) / PIXEL_RES_X as f32;
-                let vertical_offset = (y as f32 + rng.next_f32()) / PIXEL_RES_Y as f32;
+            let total_color: Vector3<f32> = (0..NUM_SAMPLES)
+                .into_par_iter()
+                .map(|_| {
+                    // Create pRNG for MSAA
+                    let mut rng = rand::thread_rng();
 
-                // Initialize a ray starting at the camera aimed at these coords
-                let ray = camera.get_ray_at_coords(horizontal_offset, vertical_offset);
+                    // Randomly offset each ray by a tiny, random amount to get nice AA
+                    let horizontal_offset = (x as f32 + rng.next_f32()) / PIXEL_RES_X as f32;
+                    let vertical_offset = (y as f32 + rng.next_f32()) / PIXEL_RES_Y as f32;
 
-                // Ray trace the ray and calculate the final color of the ray. color is a 
-                // recursive function over the depth. So set it to zero to start with
-                total_color += color(ray, &world, 0);
-            }
+                    // Initialize a ray starting at the camera aimed at these coords
+                    let ray = camera.get_ray_at_coords(horizontal_offset, vertical_offset);
+
+                    // Ray trace the ray and calculate the final color of the ray. color is a
+                    // recursive function over the depth. So set it to zero to start with
+                    color(ray, &world, 0)
+                })
+                .sum();
 
             // Final color is the average of all samples on a pixel
             let mut rgb = total_color.div_element_wise(NUM_SAMPLES as f32);
@@ -118,7 +123,11 @@ fn color<H: Hittable>(ray: Ray, world: &H, depth: u32) -> Vector3<f32> {
         if depth < 50 {
             if let Some(scattered_ray) = record.material.scatter(ray, record) {
                 // Attenuate ray based on the surface color
-                return scattered_ray.attenuation.mul_element_wise(color(scattered_ray.ray, world, depth + 1));
+                return scattered_ray.attenuation.mul_element_wise(color(
+                    scattered_ray.ray,
+                    world,
+                    depth + 1,
+                ));
             }
         }
 
@@ -133,6 +142,6 @@ fn color<H: Hittable>(ray: Ray, world: &H, depth: u32) -> Vector3<f32> {
         let t = 0.5 * (height + 1.0);
         // Lerp height to get color
         // Blended Value = (1 - t) * start_value + t * end_value where t is the lerp factor
-       (1.0 - t) * Vector3::new(1.0, 1.0, 1.0) + t * Vector3::new(0.5, 0.7, 1.0)
+        (1.0 - t) * Vector3::new(1.0, 1.0, 1.0) + t * Vector3::new(0.5, 0.7, 1.0)
     }
 }

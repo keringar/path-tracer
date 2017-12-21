@@ -1,11 +1,11 @@
 use cgmath::prelude::*;
 
-use hit::{Hittable, HitRecord};
+use hit::{HitRecord, Hittable};
 use ray::Ray;
 
 // A collection of Hittable objects
 pub struct HittableList {
-    hittable: Vec<Box<Hittable>>,
+    hittable: Vec<Box<Hittable + Sync>>,
 }
 
 impl HittableList {
@@ -15,7 +15,7 @@ impl HittableList {
         }
     }
 
-    pub fn insert(&mut self, obj: Box<Hittable>) {
+    pub fn insert(&mut self, obj: Box<Hittable + Sync>) {
         self.hittable.push(obj);
     }
 }

@@ -1,4 +1,5 @@
 # Output History
+
 Initial commit
 
 ![0](https://raw.githubusercontent.com/keringar/ray-tracer/a51f284492164df31ad8da7975bac9c7222e3a60/output.png)

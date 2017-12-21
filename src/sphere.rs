@@ -1,7 +1,7 @@
 use cgmath::prelude::*;
 use cgmath::Vector3;
 
-use hit::{Hittable, HitRecord};
+use hit::{HitRecord, Hittable};
 use material::Material;
 use ray::Ray;
 
@@ -26,8 +26,6 @@ impl Sphere {
 
 impl Hittable for Sphere {
     fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        // Check if the ray intersected the sphere
-
         // Calculate a vector from the ray origin to the sphere origin
         let oc = ray.origin() - self.center;
 

@@ -1,6 +1,6 @@
 use cgmath::Vector3;
 use cgmath::prelude::*;
-use rand::{Rand, self};
+use rand::{self, Rand};
 
 use hit::HitRecord;
 use ray::Ray;
@@ -24,7 +24,7 @@ pub enum Material {
     },
     Dielectric {
         refractive_index: f32,
-    }
+    },
 }
 
 impl Material {
@@ -42,9 +42,7 @@ impl Material {
     }
 
     pub fn new_dielectric(refractive_index: f32) -> Material {
-        Material::Dielectric {
-            refractive_index
-        }
+        Material::Dielectric { refractive_index }
     }
 }
 
@@ -54,7 +52,7 @@ impl Material {
         match self {
             // Add a random value in a unit sphere to the surface normal to get the ray, resulting in a perfectly
             // diffuse material
-            &Material::Lambertian{ albedo } => {
+            &Material::Lambertian { albedo } => {
                 // bounce direction for a diffuse material
                 let bounce_dir = record.position + record.normal + random_position_in_unit_sphere();
                 let bounced_ray = Ray::new(record.position, bounce_dir - record.position);
@@ -63,12 +61,12 @@ impl Material {
                     ray: bounced_ray,
                     attenuation: albedo,
                 })
-            },
+            }
             // Metallic materials just do a simple reflection, with an optional random fuzziness parameter
-            &Material::Metallic{ albedo, fuzziness } => {
+            &Material::Metallic { albedo, fuzziness } => {
                 // Calculate reflected ray vector with some cross products
-                let reflected = reflect(ray.direction(), record.normal);//ray.direction() - 2.0 * (ray.direction().dot(record.normal)) * record.normal;
-                // Add an fuziness parameter to the ray bounce direction
+                let reflected = reflect(ray.direction(), record.normal); //ray.direction() - 2.0 * (ray.direction().dot(record.normal)) * record.normal;
+                                                                         // Add an fuziness parameter to the ray bounce direction
                 let fuzzy_ray = reflected + (random_position_in_unit_sphere() * fuzziness);
                 // Create a new ray starting from the hit location and pointing toward the reflected ray dir
                 let bounced_ray = Ray::new(record.position, fuzzy_ray);
@@ -77,9 +75,11 @@ impl Material {
                     ray: bounced_ray,
                     attenuation: albedo,
                 })
-            },
+            }
             // Materials like glass or water
-            &Material::Dielectric{ refractive_index } => {
+            &Material::Dielectric { refractive_index } => {
+                let reflected = reflect(ray.direction(), record.normal);
+
                 // If > 0, the incoming ray is in the same dir as the normal, so for refractions
                 // the normal used is opposite the normal normal
                 let (normal_out, ni_over_nt) = if ray.direction().dot(record.normal) > 0.0 {
@@ -130,16 +130,29 @@ fn reflect(incoming_dir: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
 }
 
 // Returns either a refracted ray or none if it was reflected
-fn refract(incoming_dir: Vector3<f32>, normal: Vector3<f32>, ni_over_nt: f32) -> Option<Vector3<f32>> {
+fn refract(
+    incoming_dir: Vector3<f32>,
+    normal: Vector3<f32>,
+    ni_over_nt: f32,
+) -> Option<Vector3<f32>> {
     let uv = incoming_dir.normalize();
     let dt = uv.dot(normal);
     let discriminant = 1.0 - (ni_over_nt * ni_over_nt) * (1.0 - (dt * dt));
 
     if discriminant > 0.0 {
         let refracted = ni_over_nt * (uv - normal * dt) - normal * discriminant.sqrt();
-        
+
         Some(refracted)
     } else {
         None
     }
+}
+
+// Reflectivity angle approximation by Christophe Schlick
+// https://en.wikipedia.org/wiki/Schlick%27s_approximation
+fn schlick(cosine: f32, refractive_index: f32) -> f32 {
+    let mut r0 = (1.0 - refractive_index) / (1.0 + refractive_index);
+    r0 = r0 * r0;
+
+    r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
 }

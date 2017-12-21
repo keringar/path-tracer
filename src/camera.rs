@@ -34,7 +34,8 @@ impl Camera {
     // Initialize a ray starting at the camera position and pointing toward a point on a plane 1 unit away
     // from the camera
     pub fn get_ray_at_coords(&self, horizontal_offset: f32, vertical_offset: f32) -> Ray {
-        let destination = self.lower_left_corner + (horizontal_offset * self.horizontal_scale) + (vertical_offset * self.vertical_scale) - self.position;
+        let destination = self.lower_left_corner + (horizontal_offset * self.horizontal_scale)
+            + (vertical_offset * self.vertical_scale) - self.position;
 
         Ray::new(self.position, destination)
     }

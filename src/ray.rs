@@ -14,10 +14,7 @@ pub struct Ray {
 impl Ray {
     /// Create a new ray with the specified origin and direction
     pub fn new(origin: Vector3<f32>, direction: Vector3<f32>) -> Ray {
-        Ray {
-            origin,
-            direction,
-        }
+        Ray { origin, direction }
     }
 
     /// Get the ray origin position
