@@ -1,4 +1,5 @@
 extern crate cgmath;
+extern crate clap;
 extern crate image;
 extern crate rand;
 extern crate rayon;
@@ -8,110 +9,154 @@ mod hit;
 mod hittable_list;
 mod material;
 mod ray;
+mod scene;
 mod sphere;
+mod util;
 
 use cgmath::prelude::*;
 use cgmath::Vector3;
+
+use clap::{App, Arg};
+
 use image::Pixel;
+
 use rand::Rng;
 use rayon::prelude::*;
+
 use std::f32;
-use std::time::Instant;
 
 use hit::Hittable;
-use material::Material;
 use ray::Ray;
 
-// Final rendered image resolution
-const PIXEL_RES_X: u32 = 1920;
-const PIXEL_RES_Y: u32 = 1080;
-
-// Number of rays per pixel
-const NUM_SAMPLES: u32 = 1000;
-
 fn main() {
-    // Camera contains the ray emitter and calculates colors for a PIXEL_RES_X
-    // and PIXEL_RES_Y sized image
-    let camera = camera::Camera::new(PIXEL_RES_X, PIXEL_RES_Y);
+    // Set up clap
+    let matches = App::new("ray-tracer")
+        .version("0.2")
+        .about("Ray traces a scene")
+        .author("Warren")
+        .arg(
+            Arg::with_name("samples")
+                .short("s")
+                .long("samples")
+                .value_name("SAMPLES")
+                .help("Sets the number of samples per pixel")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("resx")
+                .short("x")
+                .long("resx")
+                .value_name("RES X")
+                .help("Sets the output resolution on the x-axis")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("resy")
+                .short("y")
+                .long("resy")
+                .value_name("RES Y")
+                .help("Sets the output resolution on the y-axis")
+                .required(true)
+                .takes_value(true),
+        )
+        .get_matches();
 
-    let lambertian_blue = Material::new_lambertian(0.1, 0.2, 0.5);
-    let lambertian_yellow = Material::new_lambertian(0.8, 0.8, 0.0);
-    let metallic = Material::new_metallic(0.8, 0.6, 0.2, 1.0);
-    let dielectric = Material::new_dielectric(1.5);
+    // Convert arg to a u32
+    let pixel_res_x = match matches.value_of("resx").unwrap().parse() {
+        Ok(res_x) => res_x,
+        Err(_) => {
+            println!("Provided X-resolution was not a number");
+            std::process::exit(-1);
+        }
+    };
 
-    let sphere_zero = sphere::Sphere::new(Vector3::new(0.0, 0.0, -1.0), 0.5, lambertian_blue);
-    let sphere_one = sphere::Sphere::new(Vector3::new(1.0, 0.0, -1.0), 0.5, metallic);
-    let sphere_two = sphere::Sphere::new(Vector3::new(-1.0, 0.0, -1.0), 0.5, dielectric);
-    let big_sphere = sphere::Sphere::new(Vector3::new(0.0, -100.5, -1.0), 100.0, lambertian_yellow);
+    // Convert arg to a u32
+    let pixel_res_y = match matches.value_of("resy").unwrap().parse() {
+        Ok(res_y) => res_y,
+        Err(_) => {
+            println!("Provided Y-resolution was not a number");
+            std::process::exit(-1);
+        }
+    };
 
-    let mut world = hittable_list::HittableList::new();
-    world.insert(Box::new(sphere_zero));
-    world.insert(Box::new(sphere_one));
-    world.insert(Box::new(sphere_two));
-    world.insert(Box::new(big_sphere));
+    // Convert arg to a u32
+    let num_samples = match matches.value_of("samples").unwrap().parse() {
+        Ok(samples) => samples,
+        Err(_) => {
+            println!("Provided number of samples was not valid");
+            std::process::exit(-1);
+        }
+    };
 
-    // Create PNG for final output
-    let mut image_buffer = image::ImageBuffer::new(PIXEL_RES_X, PIXEL_RES_Y);
+    // Create a scene to render
+    let scene = scene::load_scene();
 
-    // Start timing to see how long the ray trace takes
-    let start_time = Instant::now();
+    // Start the rendering stopwatch
+    let start_time = std::time::Instant::now();
     println!(
-        "Now ray tracing a {} by {} image with {} samples",
-        PIXEL_RES_X, PIXEL_RES_Y, NUM_SAMPLES
+        "Now rendering a {} by {} image with {} samples per pixel",
+        pixel_res_x, pixel_res_y, num_samples
     );
 
-    for y in 0..PIXEL_RES_Y {
-        for x in 0..PIXEL_RES_X {
-            // Create ray based on offsets from origin to point on plane z = -1
-            // The actual ray is exactly the opposite of how it works in real life
-            let total_color: Vector3<f32> = (0..NUM_SAMPLES)
-                .into_par_iter()
-                .map(|_| {
-                    // Create pRNG for MSAA
-                    let mut rng = rand::thread_rng();
+    // Render the scene
+    let output_buffer = {
+        // Camera contains the ray emitter and calculates colors for a PIXEL_RES_X
+        // and PIXEL_RES_Y sized image
+        let camera = camera::Camera::new(pixel_res_x, pixel_res_y);
 
-                    // Randomly offset each ray by a tiny, random amount to get nice AA
-                    let horizontal_offset = (x as f32 + rng.next_f32()) / PIXEL_RES_X as f32;
-                    let vertical_offset = (y as f32 + rng.next_f32()) / PIXEL_RES_Y as f32;
+        // Create PNG for final output
+        let mut image_buffer = image::ImageBuffer::new(pixel_res_x, pixel_res_y);
 
-                    // Initialize a ray starting at the camera aimed at these coords
-                    let ray = camera.get_ray_at_coords(horizontal_offset, vertical_offset);
+        for y in 0..pixel_res_y {
+            for x in 0..pixel_res_x {
+                // Create ray based on offsets from origin to point on plane z = -1
+                // The actual ray is exactly the opposite of how it works in real life
+                let total_color: Vector3<f32> = (0..num_samples)
+                    .into_par_iter()
+                    .map(|_| {
+                        // Create pRNG for MSAA
+                        let mut rng = rand::thread_rng();
 
-                    // Ray trace the ray and calculate the final color of the ray. color is a
-                    // recursive function over the depth. So set it to zero to start with
-                    color(ray, &world, 0)
-                })
-                .sum();
+                        // Randomly offset each ray by a tiny, random amount to get nice AA
+                        let horizontal_offset = (x as f32 + rng.next_f32()) / pixel_res_x as f32;
+                        let vertical_offset = (y as f32 + rng.next_f32()) / pixel_res_y as f32;
 
-            // Final color is the average of all samples on a pixel
-            let mut rgb = total_color.div_element_wise(NUM_SAMPLES as f32);
+                        // Initialize a ray starting at the camera aimed at these coords
+                        let ray = camera.get_ray_at_coords(horizontal_offset, vertical_offset);
 
-            // Convert from colors in range 0.0..1.0 to 0..255
-            rgb *= 255.99;
-            // Cast to bytes for storage in png
-            let rgb = rgb.cast::<u8>();
-            let pixel = image::Rgba::from_channels(rgb.x, rgb.y, rgb.z, 255);
-            // Reverse image beacuse I am indexing from top-down
-            image_buffer.put_pixel(x, PIXEL_RES_Y - y - 1, pixel);
+                        // Ray trace the ray and calculate the final color of the ray. color is a
+                        // recursive function over the depth. So set depth to zero to start with
+                        color(ray, &scene, 0)
+                    })
+                    .sum();
+
+                // Final color is the average of all samples on a pixel
+                let mut rgb = total_color.div_element_wise(num_samples as f32);
+
+                // Convert from colors in range 0.0..1.0 to 0..255
+                rgb *= 255.99;
+                // Cast to bytes for storage in png
+                let rgb = rgb.cast::<u8>().unwrap();
+                let pixel = image::Rgba::from_channels(rgb.x, rgb.y, rgb.z, 255);
+                // Reverse image beacuse I am indexing from top-down
+                image_buffer.put_pixel(x, pixel_res_y - y - 1, pixel);
+            }
         }
-    }
+
+        image_buffer
+    };
+
+    // Write output to the current working directory
+    let _ = output_buffer.save("output.png");
 
     // Calculate elapsed time
     let elapsed_time = start_time.elapsed();
-    println!("Raytracing took {}", format_seconds(elapsed_time.as_secs()));
-
-    // Save the image to the current working directory
-    let _ = image_buffer.save("output.png");
-}
-
-// Format seconds into a HH:MM:SS string
-fn format_seconds(secs: u64) -> String {
-    let hours = secs / 3600;
-    let secs = secs % 3600;
-    let minutes = secs / 60;
-    let secs = secs % 60;
-
-    format!("{:02}:{:02}:{:02}", hours, minutes, secs)
+    println!(
+        "Raytracing took {}",
+        util::format_seconds(elapsed_time.as_secs())
+    );
 }
 
 // Ray takes on the end color after up to 50 scatters/reflections
@@ -134,6 +179,7 @@ fn color<H: Hittable>(ray: Ray, world: &H, depth: u32) -> Vector3<f32> {
         // Ray has scattered so many times that it has been completely absorbed
         return Vector3::new(0.0, 0.0, 0.0);
     } else {
+        // Didn't hit anything so set up the skybox
         // Create a background gradient by lerping white and blue over the height
 
         // Normalize ray height to -1.0 to 1.0

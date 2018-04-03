@@ -1,10 +1,12 @@
 [package]
 authors = ["Keringar <git@keringar.xyz>"]
-name = "path-tracer"
-version = "0.1.0"
+name = "ray-tracer"
+version = "0.2.0"
 
 [dependencies]
-cgmath = "0.15.0"
+cgmath = "0.16.1"
 image = "0.18.0"
-rand = "0.3.18"
-rayon = "0.9.0"
+rand = "0.4.2"
+rayon = "1.0.1"
+clap = "2.31.2"
+failure = "0.1.1"

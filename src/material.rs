@@ -49,10 +49,10 @@ impl Material {
 impl Material {
     // Figure out what happens to a ray when it hits an object. Returns None if the ray was absorbed
     pub fn scatter(&self, ray: Ray, record: HitRecord) -> Option<ScatteredRay> {
-        match self {
+        match *self {
             // Add a random value in a unit sphere to the surface normal to get the ray, resulting in a perfectly
             // diffuse material
-            &Material::Lambertian { albedo } => {
+            Material::Lambertian { albedo } => {
                 // bounce direction for a diffuse material
                 let bounce_dir = record.position + record.normal + random_position_in_unit_sphere();
                 let bounced_ray = Ray::new(record.position, bounce_dir - record.position);
@@ -63,7 +63,7 @@ impl Material {
                 })
             }
             // Metallic materials just do a simple reflection, with an optional random fuzziness parameter
-            &Material::Metallic { albedo, fuzziness } => {
+            Material::Metallic { albedo, fuzziness } => {
                 // Calculate reflected ray vector with some cross products
                 let reflected = reflect(ray.direction(), record.normal); //ray.direction() - 2.0 * (ray.direction().dot(record.normal)) * record.normal;
                                                                          // Add an fuziness parameter to the ray bounce direction
@@ -77,7 +77,7 @@ impl Material {
                 })
             }
             // Materials like glass or water
-            &Material::Dielectric { refractive_index } => {
+            Material::Dielectric { refractive_index } => {
                 let reflected = reflect(ray.direction(), record.normal);
 
                 // If > 0, the incoming ray is in the same dir as the normal, so for refractions
